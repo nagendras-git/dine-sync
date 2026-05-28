@@ -215,27 +215,28 @@ input,select,button,textarea{font-family:'DM Sans',sans-serif;}
 .conn-banner.show{display:block}
 
 /* hidden image capture card */
-#sum-capture{position:fixed;left:-9999px;top:0;z-index:-1;width:360px;background:#0a0a0f;border-radius:18px;overflow:hidden;font-family:'DM Sans',-apple-system,sans-serif}
-.sc-hdr{background:#f97316;padding:18px 20px 16px}
-.sc-hdr-rest{font-size:17px;font-weight:800;color:#fff;letter-spacing:-.3px}
-.sc-hdr-meta{font-size:11px;color:rgba(255,255,255,.8);margin-top:3px}
-.sc-body{padding:12px 16px}
-.sc-person{margin-bottom:10px}
-.sc-person-hdr{display:flex;align-items:center;gap:8px;margin-bottom:5px}
-.sc-av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
-.sc-pname{font-size:13px;font-weight:700;color:#eeeef8;flex:1}
-.sc-ptotal{font-size:13px;font-weight:700;color:#f97316}
-.sc-items{background:#18181f;border-radius:10px;overflow:hidden}
-.sc-item{display:flex;align-items:center;gap:8px;padding:7px 11px;border-bottom:1px solid #252535}
+#sum-capture{position:fixed;left:-9999px;top:0;z-index:-1;width:380px;background:#0d0d14;border-radius:20px;overflow:hidden;font-family:-apple-system,'DM Sans',sans-serif}
+.sc-hdr{background:#f97316;padding:20px 22px 18px}
+.sc-hdr-rest{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.sc-hdr-meta{font-size:12px;color:rgba(255,255,255,.82);margin-top:4px}
+.sc-body{padding:14px 16px 10px}
+.sc-person{margin-bottom:12px}
+.sc-person-hdr{display:flex;align-items:center;gap:10px;margin-bottom:6px;padding:0 2px}
+.sc-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.sc-pname{font-size:14px;font-weight:700;color:#eeeef8;flex:1}
+.sc-ptotal{font-size:14px;font-weight:800;color:#f97316;flex-shrink:0}
+.sc-items{background:#17171f;border-radius:12px;overflow:hidden;border:1px solid #252535}
+.sc-item{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid #252535}
 .sc-item:last-child{border-bottom:none}
-.sc-vdot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
-.sc-iname{font-size:12px;font-weight:500;color:#eeeef8;flex:1}
-.sc-iprice{font-size:12px;font-weight:700;color:#f97316}
-.sc-status{font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;flex-shrink:0}
-.sc-total{display:flex;justify-content:space-between;align-items:center;padding:12px 0 0;margin-top:8px;border-top:1px solid #2e2e42}
-.sc-total-lbl{font-size:11px;font-weight:700;color:#5e5e7a;text-transform:uppercase;letter-spacing:.5px}
-.sc-total-val{font-size:20px;font-weight:800;color:#f97316}
-.sc-footer{padding:8px 16px 12px;text-align:center;font-size:10px;color:#5e5e7a}
+.sc-vdot{width:9px;height:9px;border-radius:2px;flex-shrink:0;border:1.5px solid}
+.sc-iname{font-size:13px;font-weight:500;color:#ddddf0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-status{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;flex-shrink:0;white-space:nowrap}
+.sc-iprice{font-size:13px;font-weight:700;color:#f97316;flex-shrink:0;min-width:52px;text-align:right}
+.sc-divider{height:1px;background:#2a2a3a;margin:4px 0 10px}
+.sc-total{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#1a1a26;border-radius:12px;margin:0 0 4px}
+.sc-total-lbl{font-size:11px;font-weight:700;color:#6868888;text-transform:uppercase;letter-spacing:.6px;color:#8888a8}
+.sc-total-val{font-size:22px;font-weight:800;color:#f97316}
+.sc-footer{padding:8px 16px 14px;text-align:center;font-size:10px;color:#44445a}
 
 /* toast */
 .toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+90px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--sf);border:1px solid var(--bd);color:var(--t1);padding:9px 20px;border-radius:99px;font-size:.86rem;font-weight:600;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s var(--spring);white-space:nowrap;z-index:9999;box-shadow:0 4px 24px rgba(0,0,0,.5)}
@@ -670,7 +671,7 @@ document.getElementById('ns-start-ok').onclick=async()=>{
   try{
     await db.ref(`sessions/${sessionCode}`).set({
       meta:{restaurant:rest,createdAt:Date.now(),hostName:name,active:true},
-      members:{[myUid]:{name:myName,color:myColor,joinedAt:Date.now()}},
+      members:{[myUid]:{name:myName,color:myColor,joinedAt:Date.now(),deviceId}},
       categories:hostCats.reduce((o,c,i)=>{o[i]=c;return o},{})
     });
     document.getElementById('ns-start').classList.remove('open');
@@ -685,6 +686,19 @@ document.getElementById('ns-start-ok').onclick=async()=>{
 };
 document.getElementById('s-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('ns-start-ok').click();});
 
+// ── Device fingerprint (stable per device, not per session) ──
+function getDeviceId(){
+  try{
+    let id=localStorage.getItem('ds_device_id');
+    if(!id){
+      id=Math.random().toString(36).substr(2,12)+'_'+Date.now().toString(36);
+      localStorage.setItem('ds_device_id',id);
+    }
+    return id;
+  }catch(e){return 'dev_'+Math.random().toString(36).substr(2,8);}
+}
+const deviceId=getDeviceId();
+
 // ── Join session ──
 document.getElementById('ns-join-ok').onclick=async()=>{
   const name=document.getElementById('j-name').value.trim();
@@ -692,17 +706,39 @@ document.getElementById('ns-join-ok').onclick=async()=>{
   if(!name){toast('Enter your name');document.getElementById('j-name').focus();return;}
   if(code.length<6){toast('Enter 6-char code');document.getElementById('j-code').focus();return;}
   const btn=document.getElementById('ns-join-ok');btn.textContent='Joining…';btn.disabled=true;
-  myName=name;myColor=nameColor(name);isHost=false;sessionCode=code;myUid=makeUid();
+  isHost=false;sessionCode=code;
   try{
     const snap=await db.ref(`sessions/${code}/meta`).once('value');
     if(!snap.exists()){toast('Session not found',3000);btn.textContent='Join session';btn.disabled=false;return;}
     const meta=snap.val();
     if(!meta.active){toast('Session has ended',3000);btn.textContent='Join session';btn.disabled=false;return;}
-    // Check for duplicate name
+
     const membersSnap=await db.ref(`sessions/${code}/members`).once('value');
-    const existingNames=membersSnap.exists()?Object.values(membersSnap.val()).map(m=>m.name?.toLowerCase()):[];
-    if(existingNames.includes(name.toLowerCase())){
-      toast(`"${name}" is already in this session — try a different name`,3500);
+    const members=membersSnap.exists()?membersSnap.val():{};
+
+    // Check if this device already has an entry in this session
+    const existingEntry=Object.entries(members).find(([uid,m])=>m.deviceId===deviceId);
+    if(existingEntry){
+      // Same device rejoining — reuse existing UID and name
+      myUid=existingEntry[0];
+      myName=existingEntry[1].name;
+      myColor=existingEntry[1].color||nameColor(myName);
+      // Update joinedAt to mark as active
+      await db.ref(`sessions/${code}/members/${myUid}`).update({joinedAt:Date.now()});
+      document.getElementById('ns-join').classList.remove('open');
+      saveIdentity();
+      enterSession();
+      toast('Welcome back, '+myName+'!');
+      btn.textContent='Join session';btn.disabled=false;
+      return;
+    }
+
+    // New device — check for duplicate name from a DIFFERENT device
+    const nameConflict=Object.entries(members).find(([uid,m])=>
+      m.name?.toLowerCase()===name.toLowerCase() && m.deviceId && m.deviceId!==deviceId
+    );
+    if(nameConflict){
+      toast(`"${name}" is already taken — try a different name`,3500);
       btn.textContent='Join session';btn.disabled=false;
       const nameEl=document.getElementById('j-name');
       nameEl.style.borderColor='var(--red)';
@@ -711,7 +747,10 @@ document.getElementById('ns-join-ok').onclick=async()=>{
       setTimeout(()=>{nameEl.style.borderColor='';nameEl.style.boxShadow='';},2500);
       return;
     }
-    await db.ref(`sessions/${code}/members/${myUid}`).set({name:myName,color:myColor,joinedAt:Date.now()});
+
+    // Fresh join
+    myName=name;myColor=nameColor(name);myUid=makeUid();
+    await db.ref(`sessions/${code}/members/${myUid}`).set({name:myName,color:myColor,joinedAt:Date.now(),deviceId});
     document.getElementById('ns-join').classList.remove('open');
     saveIdentity();
     enterSession();toast('Joined '+meta.restaurant+'!');
@@ -1073,14 +1112,16 @@ function buildSummaryCard(sessData){
     const color=nameColorMap[person]||nameColor(person);
     const ini=initials(person);
     const itemsHtml=items.map(i=>{
-      const vdotColor=i.veg==='veg'?'#34d399':i.veg==='nveg'?'#f87171':'#5e5e7a';
+      const vBorder=i.veg==='veg'?'#34d399':i.veg==='nveg'?'#f87171':'#5e5e7a';
+      const vFill=i.veg==='veg'?'rgba(52,211,153,.2)':i.veg==='nveg'?'rgba(248,113,113,.2)':'rgba(94,94,122,.2)';
       const stColor=i.status==='delivered'?'#34d399':i.status==='preparing'?'#fbbf24':'#f97316';
       const stBg=i.status==='delivered'?'rgba(52,211,153,.15)':i.status==='preparing'?'rgba(251,191,36,.15)':'rgba(249,115,22,.15)';
+      const priceTotal=i.price>0?fmt((i.price||0)*(i.qty||1)):'—';
       return `<div class="sc-item">
-        <div class="sc-vdot" style="background:${vdotColor}"></div>
+        <div class="sc-vdot" style="border-color:${vBorder};background:${vFill}"></div>
         <div class="sc-iname">${esc(i.name)}${i.qty>1?` ×${i.qty}`:''}</div>
         <div class="sc-status" style="color:${stColor};background:${stBg}">${i.status||'ordered'}</div>
-        <div class="sc-iprice">${i.price>0?fmt((i.price||0)*(i.qty||1)):'—'}</div>
+        <div class="sc-iprice">${priceTotal}</div>
       </div>`;
     }).join('');
     return `<div class="sc-person">
@@ -1099,6 +1140,7 @@ function buildSummaryCard(sessData){
   </div>
   <div class="sc-body">
     ${personHtml}
+    <div class="sc-divider"></div>
     <div class="sc-total">
       <div class="sc-total-lbl">Table Total</div>
       <div class="sc-total-val">${fmt(total)}</div>
