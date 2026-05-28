@@ -698,6 +698,19 @@ document.getElementById('ns-join-ok').onclick=async()=>{
     if(!snap.exists()){toast('Session not found',3000);btn.textContent='Join session';btn.disabled=false;return;}
     const meta=snap.val();
     if(!meta.active){toast('Session has ended',3000);btn.textContent='Join session';btn.disabled=false;return;}
+    // Check for duplicate name
+    const membersSnap=await db.ref(`sessions/${code}/members`).once('value');
+    const existingNames=membersSnap.exists()?Object.values(membersSnap.val()).map(m=>m.name?.toLowerCase()):[];
+    if(existingNames.includes(name.toLowerCase())){
+      toast(`"${name}" is already in this session — try a different name`,3500);
+      btn.textContent='Join session';btn.disabled=false;
+      const nameEl=document.getElementById('j-name');
+      nameEl.style.borderColor='var(--red)';
+      nameEl.style.boxShadow='0 0 0 3px rgba(248,113,113,.15)';
+      nameEl.focus();nameEl.select();
+      setTimeout(()=>{nameEl.style.borderColor='';nameEl.style.boxShadow='';},2500);
+      return;
+    }
     await db.ref(`sessions/${code}/members/${myUid}`).set({name:myName,color:myColor,joinedAt:Date.now()});
     document.getElementById('ns-join').classList.remove('open');
     saveIdentity();
