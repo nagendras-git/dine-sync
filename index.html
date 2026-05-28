@@ -740,6 +740,13 @@ function renderFeed(orders,members,categories){
     feed.innerHTML='<div class="feed-empty"><div class="feed-empty-icon">🍽️</div>Waiting for first order…<br>Tap Add to get started</div>';
     return;
   }
+  // Remember which sections are collapsed before re-render
+  const collapsed={};
+  feed.querySelectorAll('.person-sec').forEach(sec=>{
+    const items=sec.querySelector('.person-items');
+    const key=sec.dataset.person;
+    if(key&&items) collapsed[key]=items.classList.contains('collapsed');
+  });
   const nameColorMap={};
   Object.values(members).forEach(m=>{if(m.name)nameColorMap[m.name]=m.color||nameColor(m.name);});
   const grouped={},memberOrder={};
@@ -754,7 +761,8 @@ function renderFeed(orders,members,categories){
     const pTotal=items.reduce((a,i)=>a+(i.price||0)*(i.qty||1),0);
     const color=nameColorMap[person]||nameColor(person);
     const isMe=person===myName;
-    return `<div class="person-sec" id="psec-${person.replace(/[^a-z0-9]/gi,'_')}">
+    const wasCollapsed = collapsed[person] || false;
+    return `<div class="person-sec" data-person="${esc(person)}">
       <div class="person-hdr" onclick="togglePerson(this)">
         <div class="p-av" style="background:${color}">${initials(person)}</div>
         <div class="p-name">${esc(person)}${isMe?'<span class="p-you"> (you)</span>':''}</div>
@@ -794,6 +802,16 @@ function renderFeed(orders,members,categories){
       </div>
     </div>`;
   }).join('');
+  // Restore collapse state after re-render
+  feed.querySelectorAll('.person-sec').forEach(sec=>{
+    const key=sec.dataset.person;
+    if(key&&collapsed[key]){
+      const items=sec.querySelector('.person-items');
+      const caret=sec.querySelector('.p-caret');
+      if(items){items.classList.add('collapsed');}
+      if(caret){caret.classList.remove('open');}
+    }
+  });
 }
 
 function renderSplit(orders,members){
@@ -1053,11 +1071,75 @@ document.getElementById('show-summary-btn').onclick=()=>{
     openSheet('sum-ov','sum-sheet');
   },300);
 };
-window.shareSummary=()=>{
-  const txt=window._summaryText||'';
-  if(navigator.share){navigator.share({title:'DineSync Summary',text:txt}).catch(()=>{});}
-  else if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast('Summary copied!'));}
-  else{const i=document.createElement('textarea');i.value=txt;document.body.appendChild(i);i.select();document.execCommand('copy');document.body.removeChild(i);toast('Copied!');}
+window.shareSummary = function(){
+  if(!_sessData) return;
+  const orders = _sessData.orders ? Object.entries(_sessData.orders).map(([id,o])=>({...o,id})) : [];
+  const meta = _sessData.meta || {};
+  const members = _sessData.members || {};
+  const total = orders.reduce((a,o)=>a+(o.price||0)*(o.qty||1), 0);
+  const grouped = {};
+  orders.forEach(o=>{ if(!grouped[o.orderedBy]) grouped[o.orderedBy]=[]; grouped[o.orderedBy].push(o); });
+  const COLORS = ['#f97316','#8b5cf6','#06b6d4','#ec4899','#10b981','#f59e0b','#ef4444','#3b82f6'];
+  const nc = n => COLORS[n.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length];
+  const dateStr = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+  const personRows = Object.entries(grouped).map(([person, items]) => {
+    const pTotal = items.reduce((a,i)=>a+(i.price||0)*(i.qty||1), 0);
+    const color = nc(person);
+    const itemRows = items.map(i => `
+      <tr>
+        <td style="padding:7px 12px;font-size:13px;color:#333">${i.name}${i.qty>1?' ×'+i.qty:''}</td>
+        <td style="padding:7px 12px;font-size:12px;color:#888">${i.category||''}</td>
+        <td style="padding:7px 12px;font-size:12px;color:#888;text-align:center">${i.status||'ordered'}</td>
+        <td style="padding:7px 12px;font-size:13px;font-weight:600;color:#f97316;text-align:right">${i.price>0?'₹'+Number((i.price||0)*(i.qty||1)).toLocaleString('en-IN'):'—'}</td>
+      </tr>`).join('');
+    return `
+      <tr style="background:#f8f8fc">
+        <td colspan="4" style="padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${person.substr(0,2).toUpperCase()}</div>
+            <span style="font-weight:700;font-size:14px;color:#111;flex:1">${person}</span>
+            <span style="font-weight:700;font-size:13px;color:#f97316">₹${Number(pTotal).toLocaleString('en-IN')}</span>
+          </div>
+        </td>
+      </tr>
+      ${itemRows}
+      <tr><td colspan="4" style="padding:0;border-bottom:1px solid #eee"></td></tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>DineSync — ${meta.restaurant||'Order Summary'}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'DM Sans',sans-serif;background:#f5f5f7;padding:20px}
+  .card{background:#fff;border-radius:16px;max-width:480px;margin:0 auto;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+  .hdr{background:#f97316;padding:20px 24px;color:#fff}
+  .hdr-title{font-size:22px;font-weight:800;letter-spacing:-.3px}
+  .hdr-sub{font-size:13px;opacity:.85;margin-top:3px}
+  .hdr-date{font-size:12px;opacity:.7;margin-top:2px}
+  table{width:100%;border-collapse:collapse}
+  .total-row{background:#fff7f0;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-top:2px solid #f97316}
+  @media print{body{padding:0;background:#fff}.card{box-shadow:none;border-radius:0;max-width:100%}}
+</style></head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="hdr-title">🍽 ${meta.restaurant||'Order Summary'}</div>
+    <div class="hdr-sub">DineSync · ${Object.keys(members).length} people at the table</div>
+    <div class="hdr-date">${dateStr}</div>
+  </div>
+  <table>${personRows}</table>
+  <div class="total-row">
+    <span style="font-size:14px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px">Table Total</span>
+    <span style="font-size:22px;font-weight:800;color:#f97316">₹${Number(total).toLocaleString('en-IN')}</span>
+  </div>
+</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+
+  const w = window.open('','_blank');
+  if(w){ w.document.write(html); w.document.close(); }
+  else { toast('Allow popups to print summary', 3000); }
 };
 
 // ── QR renderer ──
@@ -1125,8 +1207,20 @@ window.setFontSize = function(size){
   fontSize=size;
   try{localStorage.setItem('ds_fs',size);}catch(e){}
   applyFontSize();
-  toast('Text size updated');
+  toast('Text size: '+(size===13?'S':size===15?'M':size===17?'L':'XL'));
 };
+
+function applyFontSize(){
+  let st=document.getElementById('ds-fs-style');
+  if(!st){st=document.createElement('style');st.id='ds-fs-style';document.head.appendChild(st);}
+  st.textContent=`:root{--fs:${fontSize}px!important}html{font-size:${fontSize}px!important}`;
+  // Update size buttons - use inline style since they're dynamically injected
+  document.querySelectorAll('.ds-sz-btn').forEach(b=>{
+    const active = parseInt(b.dataset.s)===fontSize;
+    b.style.background = active ? 'var(--acc)' : 'none';
+    b.style.color = active ? '#fff' : 'var(--t3)';
+  });
+}
 // (injected once so dark/light toggle works)
 (function(){
   const st=document.createElement('style');
@@ -1134,16 +1228,9 @@ window.setFontSize = function(size){
   document.head.appendChild(st);
 })();
 
-// ── Font size ──
+// ── Font size init ──
 let fontSize=15;
 try{const f=localStorage.getItem('ds_fs');if(f)fontSize=parseInt(f);}catch(e){}
-function applyFontSize(){
-  let st=document.getElementById('ds-fs-style');
-  if(!st){st=document.createElement('style');st.id='ds-fs-style';document.head.appendChild(st);}
-  st.textContent=`:root{--fs:${fontSize}px!important}html{font-size:${fontSize}px!important}`;
-  // Update size buttons if settings visible
-  document.querySelectorAll('.ds-sz-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.s)===fontSize));
-}
 applyFontSize();
 (()=>{
   var ic192='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAGw0lEQVR4nO2aQW5dNxAEdYpc1KfPKoECCJAcyyb/G7K7Z6qB2hEPnGHX7r29meXvH3/9A31R98sq6scAD9Q9vBr1ssEbdT+PRL1UyETd28dRLxB6oO7xdtQLg56oe70U9ZKgN+p+fxv1YmAW6r5/iXoZMBN17/+LegkwG4oP8OOyCOphAX4F5YfxUH4YD+WH8SAAjIbyw3goP4yH8sN4EABGQ/lhPJQfxoMAMBrKD+NBABgN5YfxIACMBgFgNJQfxoMApvyc1XM7Z9UzOoAAZvwpq2df/eY0KL8Zq2Vdye43p4IAJqxm9ezuN6eCACYggAYEMAEBNCCACQiggfKbgAA6EMAABNCBAAYggA4EMAABdCCAAQigAwEMQAAdLQVIe/yd+1aec9qBijYCPE3C3VfP7n5zMi0EqIr7/VfP7n5zMvECnIjrDKtnd785mVgBTsdxltWzu9+cDAIYlGPnPpXnbs7oSqQAN+M0z+rZ3W9OJk6A23GaafXs7jcnEyWAKi5zrZ7d/eZkEMCgJDv3qDx3YzZ3EMCgKDt3qDx3eq4EYgRQx2G21bO735wMAhgUZecOledOz5UAAhgUZecOledOz5UAAmxEPdvq2d1vTgYBNqKebfXs7jcngwAbUc+2enb3m5NBgI2oZ1s9u/vNySCAQVF27lB57vRcCSCAQVF27lB57vRcCSCAQVF27lB57vRcCcQIsPOoJ+Iw1+rZ3W9OBgEMSrJzj8pzN2ZzBwEMSrJzj8pzN2ZzJ0qAnYetitNMq2d3vzmZOAF2HrciTvOsnt395mQQwKAcO/epPHdzRlciBdh54FfjOMvq2d1vTiZWgJ1H3k2XORxndSNagBPl6TCD+7xOxAtQWaD0+yfN7EKsAJ2KoYz6HdXECdCxIMqo31NNjADqdJ1N/a5qIgRwScf51G+rxloA13SZVf2+DtgK4J70mdXv64KlAClJnV39vk7YCZAWx/2o3zAJKwFS47Yj9TsmYSNAepz2pH7LJBCgMC57Ur9lEhYCdInLrtTvmYRcgG5x2Jf6TZNAgOI47Ev9pklIBega9c7UpUoCAQ5EvTN1qZJAgENBgAxkAnQPAmSAAIeCABkgwKEgQAYIcDAI4I9EgClBAH8Q4GAQwB8EOBgE8Ef+KwTsgQC1IEAYCFALAoSBALUgQBgIUAsChIEAtSBAGAhQCwKEgQC1IEAYCFALAoSBALUgQBgIUAsChIEAtSBAGAhQCwKEgQC1tBRgNep7nppNfcckWgnwatT3rp5RfcckWghQFfUcVbOq75hEvADVUc9TMa/6jklEC3Aq6rmezqy+YxIIEFai5Ls7EivA6ajnezK3+o5JRApwK+o5X51dfcckECCsSKn3dgUBwsqUeGdn4gS4HfW8r8zvsHv1nlZBgLCHvHnnznv8AAHCHu70nU9Hvb+fQYCwBzt159tR7xEBwh7qpADKqPeJAOYPdFIApyCA6aOp5z0lgGMQwPDh1POeEMA5CGAmgXrWSgFSggAmAqjnrBQgLQhgIIF6xskCvAcBhAKo56sUIDkIIJBAPVelAB2CAJclUM9UJUCXIMAlCdRzIMD3QYDDEqjvXy1AxyBAcelvLhoBvubVuRDg4uOq51TOfjJP5R4rgCrquR12UJWn840VQB31/C57eJKK+UYK4BR28Voq5xslgGPYx16qZxsjgHPYy1pOzDRCgIQ47chxZyffu7UAKVHvyXlvp+/dVoC0qPfluLsbd0YAo6h35rS7W/dtKUBq1Htz2t2t+yKAWVJ3V/kGN9+5nQDpSdzfjW+demcEMEza/qq+p3jjVgJ0SdIOq76pemMEMEzaDp9+V/m+CGCYtD0++a76bRHAMIl7fOXbDu+KAKZJ3OPO913etEyA9yBAXVL36HKPm/d9+4haAKjBoVQ3UrUvBGiIulw3UrUrBGiIsmC3UrUrBGiIqmS3Urmrt89RPxzUcbtsN1O1o7efo340qONm4W6nakcI0Jwbpbudyv38TwAk6MXp8ilStZtflh8B+tEplXtBgCF0SfVevhUACfrRIZX7+G35EaAnyanexR8FQIKeJKZ6B0vlR4CepOXEDpYFQIKepOTE7FvlR4LeOOfEvC+VHwF645hTs74sABL0ximnZnxUfiSYQcfiv1NSfiSYQafiv1NafgSYQ3rxPygXAAnmkVj8d46UHwnAtfCfOVp+JABnrpQfCcCRq+VHBHBBVvzPUS8BZqLu/ZeolwGzUPf926gXA71R93sp6iVBT9S93o56YdADdY8fR71AyETd2yNRLxW8UffzatTLBg/UPbSK+jFgVtn/BUbg2mTQvR5VAAAAAElFTkSuQmCC';
