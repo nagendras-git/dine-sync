@@ -202,6 +202,8 @@ input,select,button,textarea{font-family:'DM Sans',sans-serif;}
 .t-btn-acc:active{background:var(--acc2)}
 .t-btn-ghost{background:var(--sf2);border-color:var(--bd);color:var(--t2)}
 .t-btn-ghost:active{background:var(--sf3)}
+.t-btn-tint{background:var(--acc-bg);border-color:var(--acc-bd);color:var(--acc)}
+.t-btn-tint:active{background:var(--acc-bg);opacity:.8}
 /* split view */
 .split-panel{padding:0 14px 10px;border-top:1px solid var(--bd2);display:none}
 .split-panel.open{display:block}
@@ -436,11 +438,11 @@ input,select,button,textarea{font-family:'DM Sans',sans-serif;}
       <div class="total-sub" id="total-sub">0 dishes · 0 people</div>
     </div>
     <div class="total-actions">
-      <button class="t-btn t-btn-ghost" id="split-toggle-btn">
+      <button class="t-btn t-btn-tint" id="split-toggle-btn">
         <svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
         Split
       </button>
-      <button class="t-btn t-btn-ghost" id="validate-btn">
+      <button class="t-btn t-btn-tint" id="validate-btn">
         <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Validate
       </button>
@@ -716,44 +718,55 @@ document.getElementById('ns-join-ok').onclick=async()=>{
     const membersSnap=await db.ref(`sessions/${code}/members`).once('value');
     const members=membersSnap.exists()?membersSnap.val():{};
 
-    // Check if this device already has an entry in this session
-    const existingEntry=Object.entries(members).find(([uid,m])=>m.deviceId===deviceId);
-    if(existingEntry){
-      // Same device rejoining — reuse existing UID and name
-      myUid=existingEntry[0];
-      myName=existingEntry[1].name;
-      myColor=existingEntry[1].color||nameColor(myName);
-      // Update joinedAt to mark as active
-      await db.ref(`sessions/${code}/members/${myUid}`).update({joinedAt:Date.now()});
+    // Helper: rejoin with existing entry
+    const doRejoin=async(uid,m)=>{
+      myUid=uid;myName=m.name;myColor=m.color||nameColor(m.name);
+      await db.ref(`sessions/${code}/members/${uid}`).update({joinedAt:Date.now(),deviceId});
       document.getElementById('ns-join').classList.remove('open');
-      saveIdentity();
-      enterSession();
-      toast('Welcome back, '+myName+'!');
-      btn.textContent='Join session';btn.disabled=false;
-      return;
+      saveIdentity();enterSession();toast('Welcome back, '+myName+'!');
+    };
+
+    // 1. sessionStorage — same browser tab/session
+    try{
+      const saved=JSON.parse(sessionStorage.getItem('ds_id')||'null');
+      if(saved&&saved.sessionCode===code&&saved.myUid&&members[saved.myUid]){
+        await doRejoin(saved.myUid,members[saved.myUid]);
+        btn.textContent='Join session';btn.disabled=false;return;
+      }
+    }catch(e){}
+
+    // 2. deviceId match — same device, any name
+    const byDevice=Object.entries(members).find(([uid,m])=>m.deviceId===deviceId);
+    if(byDevice){
+      await doRejoin(byDevice[0],byDevice[1]);
+      btn.textContent='Join session';btn.disabled=false;return;
     }
 
-    // New device — check for duplicate name from a DIFFERENT device
-    const nameConflict=Object.entries(members).find(([uid,m])=>
-      m.name?.toLowerCase()===name.toLowerCase() && m.deviceId && m.deviceId!==deviceId
-    );
-    if(nameConflict){
-      toast(`"${name}" is already taken — try a different name`,3500);
-      btn.textContent='Join session';btn.disabled=false;
-      const nameEl=document.getElementById('j-name');
-      nameEl.style.borderColor='var(--red)';
-      nameEl.style.boxShadow='0 0 0 3px rgba(248,113,113,.15)';
-      nameEl.focus();nameEl.select();
-      setTimeout(()=>{nameEl.style.borderColor='';nameEl.style.boxShadow='';},2500);
-      return;
+    // 3. Name match — same name typed, check device ownership
+    const byName=Object.entries(members).find(([uid,m])=>m.name?.toLowerCase()===name.toLowerCase());
+    if(byName){
+      const existingDev=byName[1].deviceId;
+      if(!existingDev||existingDev===deviceId){
+        // No deviceId (old entry) or same device — reclaim
+        await doRejoin(byName[0],byName[1]);
+        btn.textContent='Join session';btn.disabled=false;return;
+      } else {
+        // Different device owns this name
+        toast(`"${name}" is already taken — try a different name`,3500);
+        btn.textContent='Join session';btn.disabled=false;
+        const el=document.getElementById('j-name');
+        el.style.borderColor='var(--red)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,.15)';
+        el.focus();el.select();
+        setTimeout(()=>{el.style.borderColor='';el.style.boxShadow='';},2500);
+        return;
+      }
     }
 
-    // Fresh join
+    // 4. Fresh join
     myName=name;myColor=nameColor(name);myUid=makeUid();
     await db.ref(`sessions/${code}/members/${myUid}`).set({name:myName,color:myColor,joinedAt:Date.now(),deviceId});
     document.getElementById('ns-join').classList.remove('open');
-    saveIdentity();
-    enterSession();toast('Joined '+meta.restaurant+'!');
+    saveIdentity();enterSession();toast('Joined '+meta.restaurant+'!');
   }catch(e){toast('Connection error',3000);console.error(e);}
   btn.textContent='Join session';btn.disabled=false;
 };
