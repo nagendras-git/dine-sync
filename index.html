@@ -912,7 +912,29 @@ document.getElementById('validate-btn').onclick=()=>{
 };
 
 
-// ── Dark mode ──
+// ── Copy / Share link ──
+function copyLink(){
+  const url = location.href.split('?')[0] + '?code=' + sessionCode;
+  if(navigator.clipboard) navigator.clipboard.writeText(url).then(()=>toast('Link copied!'));
+  else{const i=document.createElement('input');i.value=url;document.body.appendChild(i);i.select();document.execCommand('copy');document.body.removeChild(i);toast('Copied!');}
+}
+function shareLink(){
+  const url = location.href.split('?')[0] + '?code=' + sessionCode;
+  if(navigator.share) navigator.share({title:'Join DineSync', text:'Session: '+sessionCode, url}).catch(()=>copyLink());
+  else copyLink();
+}
+
+// ── End session confirm ──
+document.getElementById('end-cancel').onclick = () => document.getElementById('end-cov').classList.remove('open');
+document.getElementById('end-ok').onclick = async () => {
+  try{
+    await db.ref(`sessions/${sessionCode}/meta`).update({active:false});
+    document.getElementById('end-cov').classList.remove('open');
+    if(unsubFn) unsubFn();
+    showScreen('s-home');
+    toast('Session ended');
+  }catch(e){ toast('Error ending session', 2000); }
+};
 let darkMode = true;
 try{ const d=localStorage.getItem('ds_dark'); if(d!==null) darkMode=(d==='1'); }catch(e){}
 function applyDark(){
