@@ -640,9 +640,11 @@ document.getElementById('ns-start-ok').onclick=async()=>{
     });
     document.getElementById('ns-start').classList.remove('open');
     document.getElementById('disp-code').textContent=sessionCode;
-    renderQR(sessionCode,'qr-svg',110);
-    showScreen('s-created');toast('Session created!');
+    showScreen('s-created');
+    toast('Session created!');
     saveIdentity();
+    // Render QR after screen is shown (qrcode.js needs visible DOM)
+    setTimeout(()=>{ try{renderQR(sessionCode,'qr-svg',110);}catch(e){} }, 100);
   }catch(e){toast('Connection error',3000);console.error(e);}
   btn.textContent='Create session';btn.disabled=false;
 };
@@ -934,7 +936,7 @@ document.getElementById('sum-close').onclick=()=>closeSheet('sum-ov','sum-sheet'
 // ── Session info ──
 function openInfo(){
   document.getElementById('info-code').textContent=sessionCode;
-  renderQR(sessionCode,'info-qr',100);
+  setTimeout(()=>{ try{renderQR(sessionCode,'info-qr',100);}catch(e){} }, 100);
   document.getElementById('end-wrap').style.display=isHost?'block':'none';
   document.getElementById('leave-wrap').style.display=isHost?'none':'block';
   applyDark();
@@ -1021,6 +1023,19 @@ window.shareSummary=()=>{
   else if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast('Summary copied!'));}
   else{const i=document.createElement('textarea');i.value=txt;document.body.appendChild(i);i.select();document.execCommand('copy');document.body.removeChild(i);toast('Copied!');}
 };
+
+// ── QR renderer ──
+function renderQR(code, containerId, size){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = '';
+  const url = location.href.split('?')[0] + '?code=' + code;
+  try{
+    new QRCode(el, {text:url, width:size, height:size, colorDark:'#111118', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
+  }catch(e){
+    el.innerHTML = `<div style="font-size:.8rem;color:#333;padding:8px;text-align:center;font-weight:700">${code}</div>`;
+  }
+}
 
 // ── PWA ──
 (()=>{
