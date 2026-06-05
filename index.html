@@ -907,18 +907,44 @@ function renderFeed(orders,members,categories){
 function renderSplit(orders,members){
   const panel=document.getElementById('split-panel');
   if(!splitOpen){panel.classList.remove('open');return;}
+
+  // Per-person ordered totals (reference only)
   const byPerson={};
   orders.forEach(o=>{byPerson[o.orderedBy]=(byPerson[o.orderedBy]||0)+(o.price||0)*(o.qty||1);});
+
+  // Grand total of everything on the table
+  const grandTotal=orders.reduce((a,o)=>a+(o.price||0)*(o.qty||1),0);
+
+  // All people at the table
   const nameColorMap={};
   Object.values(members).forEach(m=>{if(m.name)nameColorMap[m.name]=m.color||nameColor(m.name);});
-  panel.innerHTML=Object.entries(byPerson).map(([person,amt])=>`
-    <div class="split-row">
+  const allPeople=[...new Set([
+    ...Object.values(members).filter(m=>m.name).map(m=>m.name),
+    ...Object.keys(byPerson)
+  ])];
+  const count=allPeople.length||1;
+  const evenShare=Math.round(grandTotal/count);
+
+  const headerRow=`<div class="split-row" style="padding:8px 0 6px;border-bottom:1px solid var(--bd)">
+      <div style="font-size:.68rem;font-weight:700;color:var(--t3);letter-spacing:.4px;text-transform:uppercase">Equal Split · ${count} ${count===1?'person':'people'}</div>
+      <div style="font-size:.68rem;font-weight:700;color:var(--t3);font-family:'DM Mono',monospace">Total ${fmt(grandTotal)}</div>
+    </div>`;
+
+  const rows=allPeople.map(person=>{
+    const ordered=byPerson[person]||0;
+    return `<div class="split-row">
       <div class="split-name">
         <div class="p-av" style="background:${nameColorMap[person]||nameColor(person)};width:20px;height:20px;font-size:.6rem">${initials(person)}</div>
-        ${esc(person)}${person===myName?' (you)':''}
+        <div>
+          <div>${esc(person)}${person===myName?' (you)':''}</div>
+          ${ordered>0?`<div style="font-size:.66rem;color:var(--t3);margin-top:1px">ordered ${fmt(ordered)}</div>`:''}
+        </div>
       </div>
-      <div class="split-amt">${fmt(amt)}</div>
-    </div>`).join('');
+      <div class="split-amt">${fmt(evenShare)}</div>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML=headerRow+rows;
   panel.classList.add('open');
 }
 
